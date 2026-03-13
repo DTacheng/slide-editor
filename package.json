@@ -1,0 +1,22 @@
+{
+  "name": "slide-editor",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Visual editor for HTML slides - embeddable, offline-capable",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --minify --outfile=dist/editor.bundle.js --format=iife --global-name=SlideEditor",
+    "dev": "esbuild src/index.ts --bundle --outfile=dist/editor.bundle.js --format=iife --global-name=SlideEditor --watch",
+    "typecheck": "tsc --noEmit",
+    "inject": "bun inject.ts"
+  },
+  "bin": {
+    "slide-editor": "./inject.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "esbuild": "^0.20.0",
+    "@types/node": "^20.0.0"
+  },
+  "keywords": ["slides", "editor", "visual", "presentation"],
+  "license": "MIT"
+}
