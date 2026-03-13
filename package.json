@@ -1,5 +1,5 @@
 {
-  "name": "slide-editor",
+  "name": "@dtacheng/slide-editor",
   "version": "0.1.0",
   "type": "module",
   "description": "Visual editor for HTML slides - embeddable, offline-capable",
