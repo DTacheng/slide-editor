@@ -3,6 +3,8 @@ import { SelectionManager, DragManager, ResizeManager, TextEditor, HistoryManage
 import { Toolbar, PropertiesPanel, SlideNavigator } from './components';
 import { Exporter, ImageCropper } from './serialization';
 import { editorStyles } from './styles';
+import { detectLocale, setLocale, type Locale } from './i18n';
+import type { Locale as LocaleType } from './i18n';
 
 class SlideEditor implements EditorAPI {
   private state: EditorState;
@@ -23,6 +25,9 @@ class SlideEditor implements EditorAPI {
   private currentTheme: 'auto' | 'light' | 'dark' = 'auto';
 
   constructor() {
+    // Initialize locale based on browser settings
+    setLocale(detectLocale());
+
     this.state = {
       enabled: false,
       selectedIds: new Set(),
@@ -49,6 +54,12 @@ class SlideEditor implements EditorAPI {
 
     this.propertiesPanel = new PropertiesPanel(this);
     this.slideNavigator = new SlideNavigator(this);
+
+    // Setup locale change callback
+    this.toolbar.setOnLocaleChange((locale: LocaleType) => {
+      this.propertiesPanel.refreshLocale();
+      this.slideNavigator.refreshLocale();
+    });
 
     this.setupCallbacks();
     this.setupGlobalListeners();
@@ -78,10 +89,14 @@ class SlideEditor implements EditorAPI {
     });
 
     this.textEditor.setOnEditEnd(() => {
-      const activeId = this.textEditor.getActiveElement();
-      if (activeId) {
-        const el = this.getElementInfo(activeId);
+      // The active element is already cleared by endEditing
+      // Just update the panel to show no selection or refresh current selection
+      const selected = this.selectionManager.getSelectedIds();
+      if (selected.length === 1) {
+        const el = this.getElementInfo(selected[0]);
         if (el) this.propertiesPanel.updateSelection(el);
+      } else {
+        this.propertiesPanel.updateSelection(null);
       }
     });
 
@@ -106,6 +121,26 @@ class SlideEditor implements EditorAPI {
     });
 
     document.addEventListener('keydown', (e) => {
+      // If text editing is active, don't intercept most keys
+      // Let the contenteditable element handle navigation and editing
+      if (this.textEditor.isEditing()) {
+        // Only handle Escape and Ctrl/Cmd shortcuts while editing
+        if (e.key === 'Escape') {
+          return; // Let TextEditor handle it
+        }
+        // Allow Ctrl/Cmd shortcuts through for undo/redo/save
+        if (e.ctrlKey || e.metaKey) {
+          if (e.key === 'z' || e.key === 's') {
+            // These will be handled below
+          } else {
+            return; // Don't intercept other shortcuts while editing
+          }
+        } else {
+          // Don't intercept any regular keys while editing (including arrows)
+          return;
+        }
+      }
+
       // Undo/Redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
@@ -124,23 +159,38 @@ class SlideEditor implements EditorAPI {
         return;
       }
 
-      // Toggle panel
-      if (e.key === 'p' && !this.textEditor.isEditing()) {
+      // Check if focus is on an input field - don't trigger shortcuts
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+
+      // Toggle panel - but not when typing in an input
+      if (e.key === 'p' && !isInputFocused) {
         e.preventDefault();
         this.togglePanel();
         return;
       }
 
-      // Toggle theme
-      if (e.key === 't' && !this.textEditor.isEditing()) {
+      // Toggle theme - but not when typing in an input
+      if (e.key === 't' && !isInputFocused) {
         e.preventDefault();
         this.toggleTheme();
         return;
       }
 
-      // Delete
+      // Delete - but not when focus is on an input field
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (!this.textEditor.isEditing() && this.state.selectedIds.size > 0) {
+        // Don't delete if focus is on an input, textarea, or contenteditable element
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.getAttribute('contenteditable') === 'true'
+        );
+        if (!isInputFocused && this.state.selectedIds.size > 0) {
           e.preventDefault();
           this.deleteSelected();
         }
@@ -148,9 +198,6 @@ class SlideEditor implements EditorAPI {
 
       // Escape
       if (e.key === 'Escape') {
-        if (this.textEditor.isEditing()) {
-          return; // Let TextEditor handle it
-        }
         this.selectionManager.deselectAll();
       }
     });
@@ -208,8 +255,22 @@ class SlideEditor implements EditorAPI {
     // Make elements editable
     this.setupEditableElements();
 
+    // Refresh slide navigator to show element counts (must be after setupEditableElements)
+    this.slideNavigator.refresh();
+
+    // Show only the current slide
+    this.showSlide(this.state.currentSlideIndex);
+
     // Update initial state
     this.toolbar.updateUndoRedoState();
+  }
+
+  // Show a specific slide and hide others
+  private showSlide(index: number): void {
+    const slides = document.querySelectorAll('.slide');
+    slides.forEach((slide, i) => {
+      (slide as HTMLElement).style.display = i === index ? 'flex' : 'none';
+    });
   }
 
   disable(): void {
@@ -241,11 +302,40 @@ class SlideEditor implements EditorAPI {
 
   private setupEditableElements(): void {
     // Find all content elements in slides
+    // Note: We focus on top-level text elements and avoid nested structure
     const selectors = [
       '.slide h1', '.slide h2', '.slide h3', '.slide h4', '.slide h5', '.slide h6',
-      '.slide p', '.slide span', '.slide div:not(.slide):not([class*="slide"])',
-      '.slide img'
+      '.slide p', '.slide img',
+      // Additional element types - but avoid deeply nested elements
+      '.slide a', '.slide blockquote'
     ];
+
+    console.log('[SlideEditor] setupEditableElements: Starting...');
+
+    console.log('[SlideEditor] Selectors:', selectors);
+
+    console.log('[SlideEditor] Total slides found:', document.querySelectorAll('.slide').length);
+
+    // Temporarily show all slides to get correct dimensions
+    const slides = document.querySelectorAll('.slide');
+    const originalDisplays: string[] = [];
+    slides.forEach((s, index) => {
+      const el = s as HTMLElement;
+      // Store the current inline display style (or empty string if not set)
+      originalDisplays.push(el.style.display);
+      console.log(`[SlideEditor] Slide ${index} initial display: "${el.style.display}"`);
+      // Make all slides visible for measurement
+      el.style.display = 'flex';
+    });
+
+    // First pass: identify container elements that should NOT be split
+    const containerSelectors = ['ul', 'ol', 'dl', 'table'];
+    const containerElements = new Set<HTMLElement>();
+    containerSelectors.forEach((sel) => {
+      document.querySelectorAll(`.slide ${sel}`).forEach((el) => {
+        containerElements.add(el as HTMLElement);
+      });
+    });
 
     selectors.forEach((sel) => {
       document.querySelectorAll(sel).forEach((el) => {
@@ -253,6 +343,16 @@ class SlideEditor implements EditorAPI {
 
         // Skip if already has editor id
         if (htmlEl.hasAttribute('data-editor-id')) return;
+
+        // Skip if element's parent already has editor id (avoid nested editable elements)
+        if (htmlEl.parentElement?.closest('[data-editor-id]')) return;
+
+        // Skip if element is inside a container element that hasn't been processed yet
+        // This prevents individual list items from being made absolute
+        const parentContainer = htmlEl.parentElement?.closest('ul, ol, dl, table');
+        if (parentContainer && !parentContainer.hasAttribute('data-editor-id')) {
+          return;
+        }
 
         // Skip very small or decorative elements
         const rect = htmlEl.getBoundingClientRect();
@@ -262,15 +362,89 @@ class SlideEditor implements EditorAPI {
         const id = `editor-el-${++this.idCounter}`;
         htmlEl.setAttribute('data-editor-id', id);
 
-        // Ensure element is positioned for editing
+        // Get the slide container
+        const slide = htmlEl.closest('.slide') as HTMLElement;
+        if (!slide) return;
+
+        // Calculate position relative to slide
+        const slideRect = slide.getBoundingClientRect();
+        const elRect = htmlEl.getBoundingClientRect();
+        const relativeLeft = elRect.left - slideRect.left;
+        const relativeTop = elRect.top - slideRect.top;
+
+        // Store original styles for potential restoration
         const computed = getComputedStyle(htmlEl);
-        if (computed.position === 'static') {
-          htmlEl.style.position = 'relative';
+        const originalPosition = computed.position;
+
+        // Make element absolutely positioned for proper drag/resize
+        // Only change position if it's static - preserve existing absolute/relative positioning
+        if (originalPosition === 'static') {
+          htmlEl.style.position = 'absolute';
+          htmlEl.style.left = `${relativeLeft}px`;
+          htmlEl.style.top = `${relativeTop}px`;
+          htmlEl.style.width = `${elRect.width}px`;
+          // Don't set height for text elements to allow natural text flow
+          if (htmlEl.tagName.toLowerCase() === 'img') {
+            htmlEl.style.height = `${elRect.height}px`;
+          }
         }
 
         // Add event listeners
         this.addElementListeners(htmlEl, id);
       });
+    });
+
+    // Second pass: handle container elements (ul, ol, table) as whole units
+    containerSelectors.forEach((sel) => {
+      document.querySelectorAll(`.slide ${sel}`).forEach((el) => {
+        const htmlEl = el as HTMLElement;
+
+        // Skip if already has editor id
+        if (htmlEl.hasAttribute('data-editor-id')) return;
+
+        // Skip very small elements
+        const rect = htmlEl.getBoundingClientRect();
+        if (rect.width < 10 || rect.height < 10) return;
+
+        // Assign editor ID to the container as a whole
+        const id = `editor-el-${++this.idCounter}`;
+        htmlEl.setAttribute('data-editor-id', id);
+
+        // Get the slide container
+        const slide = htmlEl.closest('.slide') as HTMLElement;
+        if (!slide) return;
+
+        // Calculate position relative to slide
+        const slideRect = slide.getBoundingClientRect();
+        const elRect = htmlEl.getBoundingClientRect();
+        const relativeLeft = elRect.left - slideRect.left;
+        const relativeTop = elRect.top - slideRect.top;
+
+        // Store original styles
+        const computed = getComputedStyle(htmlEl);
+        const originalPosition = computed.position;
+
+        // Make container absolutely positioned
+        if (originalPosition === 'static') {
+          htmlEl.style.position = 'absolute';
+          htmlEl.style.left = `${relativeLeft}px`;
+          htmlEl.style.top = `${relativeTop}px`;
+          htmlEl.style.width = `${elRect.width}px`;
+        }
+
+        // Add event listeners
+        this.addElementListeners(htmlEl, id);
+      });
+    });
+
+    // Restore original display states
+    slides.forEach((s, index) => {
+      const el = s as HTMLElement;
+      const originalDisplay = originalDisplays[index];
+      // Only set if there was an inline style, otherwise clear it
+      if (originalDisplay !== null && originalDisplay !== undefined) {
+        el.style.display = originalDisplay;
+      }
     });
   }
 
@@ -297,14 +471,25 @@ class SlideEditor implements EditorAPI {
     const onPointerDown = (e: Event) => {
       if (!this.state.enabled) return;
       const pe = e as PointerEvent;
-      // Start drag if this element is selected
+      // Prevent text selection from starting a drag
+      // Only start drag if element is already selected and we're not in edit mode
       if (this.selectionManager.isSelected(id) && !this.textEditor.isEditing()) {
-        this.dragManager.startDrag(pe, id);
+        // Don't start drag if clicking on a child element that might be text
+        const target = pe.target as HTMLElement;
+        const isTextNode = target && (
+          target.tagName === 'SPAN' ||
+          target.tagName === 'A' ||
+          target.closest('[contenteditable="true"]')
+        );
+        if (!isTextNode) {
+          this.dragManager.startDrag(pe, id);
+        }
       }
     };
 
-    el.addEventListener('click', onClick);
-    el.addEventListener('dblclick', onDblClick);
+    // Use mousedown for better click detection on text elements
+    el.addEventListener('click', onClick, true); // Use capture phase
+    el.addEventListener('dblclick', onDblClick, true);
     el.addEventListener('pointerdown', onPointerDown);
 
     listeners.set('click', onClick);
@@ -486,16 +671,22 @@ class SlideEditor implements EditorAPI {
     const slides = document.querySelectorAll('.slide');
     if (index >= 0 && index < slides.length) {
       this.state.currentSlideIndex = index;
+
+      // Update slide navigator UI
       this.slideNavigator.setActiveSlide(index);
 
-      // Scroll to slide
-      slides[index].scrollIntoView({ behavior: 'smooth' });
+      // Switch slide display
+      this.showSlide(index);
+
+      // Deselect all elements when switching slides
+      this.selectionManager.deselectAll();
     }
   }
 
   // Element operations
   addText(options: TextOptions): ElementInfo {
-    const slide = document.querySelector('.slide');
+    // Get the current slide
+    const slide = this.getCurrentSlideElement();
     if (!slide) {
       throw new Error('No slide found');
     }
@@ -527,7 +718,8 @@ class SlideEditor implements EditorAPI {
   }
 
   addImage(options: ImageOptions): ElementInfo {
-    const slide = document.querySelector('.slide');
+    // Get the current slide
+    const slide = this.getCurrentSlideElement();
     if (!slide) {
       throw new Error('No slide found');
     }
@@ -554,6 +746,15 @@ class SlideEditor implements EditorAPI {
     this.selectionManager.select(id);
 
     return this.getElementInfo(id)!;
+  }
+
+  // Get the current slide element
+  private getCurrentSlideElement(): HTMLElement | null {
+    const slides = document.querySelectorAll('.slide');
+    if (this.state.currentSlideIndex >= 0 && this.state.currentSlideIndex < slides.length) {
+      return slides[this.state.currentSlideIndex] as HTMLElement;
+    }
+    return slides[0] as HTMLElement || null;
   }
 
   deleteElement(id: string): void {
@@ -614,13 +815,28 @@ class SlideEditor implements EditorAPI {
     const el = document.querySelector(`[data-editor-id="${id}"]`) as HTMLElement;
     if (!el) return;
 
-    const oldStyles: Record<string, string> = {};
-    Object.keys(styles).forEach((key) => {
-      oldStyles[key] = el.style.getPropertyValue(key);
-      el.style.setProperty(key, styles[key]);
+    // Convert camelCase to kebab-case for CSS property names
+    const toKebab = (str: string) => str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+
+    // Filter out empty or undefined values
+    const validStyles: Record<string, string> = {};
+    Object.entries(styles).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value.trim() !== '') {
+        validStyles[key] = value;
+      }
     });
 
-    this.pushHistory({ type: 'style', elementId: id, from: oldStyles, to: styles });
+    // Don't do anything if no valid styles
+    if (Object.keys(validStyles).length === 0) return;
+
+    const oldStyles: Record<string, string> = {};
+    Object.keys(validStyles).forEach((key) => {
+      const cssKey = toKebab(key);
+      oldStyles[key] = el.style.getPropertyValue(cssKey);
+      el.style.setProperty(cssKey, validStyles[key]);
+    });
+
+    this.pushHistory({ type: 'style', elementId: id, from: oldStyles, to: validStyles });
     this.resizeManager.updateHandlePositions(id);
   }
 
@@ -630,6 +846,26 @@ class SlideEditor implements EditorAPI {
 
     el.style.clipPath = `inset(${rect.y}% ${100 - rect.x - rect.width}% ${100 - rect.y - rect.height}% ${rect.x}%)`;
     this.pushHistory({ type: 'crop', elementId: id, to: rect });
+  }
+
+  startCropImage(id: string): void {
+    this.imageCropper.startCrop(
+      id,
+      (rect) => {
+        this.cropImage(id, rect);
+        // Re-select the element after crop
+        this.selectionManager.select(id);
+        // Recreate resize handles
+        this.resizeManager.removeAllHandles();
+        this.resizeManager.createHandles(id);
+      },
+      () => {
+        // On cancel, re-select the element
+        this.selectionManager.select(id);
+        this.resizeManager.removeAllHandles();
+        this.resizeManager.createHandles(id);
+      }
+    );
   }
 
   bringToFront(id: string): void {
@@ -685,6 +921,9 @@ class SlideEditor implements EditorAPI {
     const el = document.querySelector(`[data-editor-id="${action.elementId}"]`) as HTMLElement;
     if (!el) return;
 
+    // Convert camelCase to kebab-case for CSS property names
+    const toKebab = (str: string) => str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+
     switch (action.type) {
       case 'move':
         if (action.from) {
@@ -709,7 +948,7 @@ class SlideEditor implements EditorAPI {
       case 'style':
         if (action.from) {
           Object.entries(action.from as Record<string, string>).forEach(([key, value]) => {
-            el.style.setProperty(key, value);
+            el.style.setProperty(toKebab(key), value);
           });
         }
         break;
@@ -723,6 +962,9 @@ class SlideEditor implements EditorAPI {
 
     const el = document.querySelector(`[data-editor-id="${action.elementId}"]`) as HTMLElement;
     if (!el) return;
+
+    // Convert camelCase to kebab-case for CSS property names
+    const toKebab = (str: string) => str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 
     switch (action.type) {
       case 'move':
@@ -748,7 +990,7 @@ class SlideEditor implements EditorAPI {
       case 'style':
         if (action.to) {
           Object.entries(action.to as Record<string, string>).forEach(([key, value]) => {
-            el.style.setProperty(key, value);
+            el.style.setProperty(toKebab(key), value);
           });
         }
         break;

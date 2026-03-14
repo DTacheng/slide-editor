@@ -161,8 +161,11 @@ export class ResizeManager {
     this.startY = e.clientY;
     this.startWidth = el.offsetWidth;
     this.startHeight = el.offsetHeight;
-    this.startLeft = el.offsetLeft;
-    this.startTop = el.offsetTop;
+
+    // Use parsed style values instead of offsetLeft/offsetTop
+    // This ensures we get the actual CSS position, not the offsetParent-relative position
+    this.startLeft = parseFloat(el.style.left) || 0;
+    this.startTop = parseFloat(el.style.top) || 0;
 
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
@@ -198,7 +201,10 @@ export class ResizeManager {
     }
 
     el.style.width = `${newWidth}px`;
-    el.style.height = `${newHeight}px`;
+    // Only set height for images or elements that already have explicit height
+    if (el.tagName.toLowerCase() === 'img' || el.style.height) {
+      el.style.height = `${newHeight}px`;
+    }
     el.style.left = `${newLeft}px`;
     el.style.top = `${newTop}px`;
 

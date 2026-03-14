@@ -182,7 +182,12 @@ if (shouldOpen) {
     try {
       execSync(`xdg-open "${fileUrl}"`, { stdio: 'ignore' });
     } catch {
-      console.log(`Please open manually: ${fileUrl}`);
+      // Try start for Windows
+      try {
+        execSync(`start "" "${fileUrl}"`, { stdio: 'ignore' });
+      } catch {
+        console.log(`Please open manually: ${fileUrl}`);
+      }
     }
   }
 }

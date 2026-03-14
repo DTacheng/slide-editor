@@ -1,6 +1,6 @@
 {
   "name": "@dtacheng/slide-editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Visual editor for HTML slides - embeddable, offline-capable",
   "main": "dist/editor.bundle.js",
@@ -24,9 +24,10 @@
     "skill.md"
   ],
   "devDependencies": {
-    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0",
     "esbuild": "^0.20.0",
-    "@types/node": "^20.0.0"
+    "puppeteer": "^24.39.1",
+    "typescript": "^5.4.0"
   },
   "keywords": [
     "slides",

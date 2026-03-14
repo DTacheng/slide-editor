@@ -13,13 +13,39 @@ description: "Visual editor for HTML presentations. Self-contained, offline-capa
 
 Visual editor for HTML presentations. Self-contained, offline-capable, designed for both AI agent control and direct user manipulation.
 
+### Installation
+
+**Prerequisites**: Install [bun](https://bun.sh) first (required for running the injector).
+
+```bash
+# macOS/Linux
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell)
+powershell -c "irm bun.sh/install.ps1 | iex"
+
+# Or use npm
+npm install -g bun
+```
+
+Then install and build:
+
+```bash
+# Clone or download this project
+cd slide-editor
+
+# Install dependencies and build (use bun, not npm)
+bun install
+bun run build
+```
+
 ### Quick Start
 
 When user wants to visually edit an HTML presentation:
 
 ```bash
 # Inject editor and open in browser (one command)
-~/projects/slide-editor/inject.ts <html-file> --inline --enable --open
+bun ~/projects/slide-editor/inject.ts <html-file> --inline --enable --open
 ```
 
 This will:
@@ -30,16 +56,16 @@ This will:
 
 ```bash
 # Full workflow: inject + enable + open (recommended)
-~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
+bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
 
 # Inline mode (single file, portable)
-~/projects/slide-editor/inject.ts presentation.html --inline --enable
+bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable
 
 # Link mode (separate bundle file)
-~/projects/slide-editor/inject.ts presentation.html --link --enable
+bun ~/projects/slide-editor/inject.ts presentation.html --link --enable
 
 # Remove editor from HTML
-~/projects/slide-editor/inject.ts presentation.html --remove
+bun ~/projects/slide-editor/inject.ts presentation.html --remove
 ```
 
 ### User Interaction
@@ -164,13 +190,39 @@ const html = window.__openclawEditor.export();
 
 HTML 演示文稿的可视化编辑器。自包含、可离线使用，支持 AI Agent 控制和直接用户操作。
 
+### 安装
+
+**前置条件**：先安装 [bun](https://bun.sh)（运行注入器必需）。
+
+```bash
+# macOS/Linux
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell)
+powershell -c "irm bun.sh/install.ps1 | iex"
+
+# 或使用 npm
+npm install -g bun
+```
+
+然后安装和构建：
+
+```bash
+# 克隆或下载此项目
+cd slide-editor
+
+# 安装依赖并构建（使用 bun，不要用 npm）
+bun install
+bun run build
+```
+
 ### 快速开始
 
 当用户想要可视化编辑 HTML 演示文稿时：
 
 ```bash
 # 注入编辑器并在浏览器中打开（一条命令）
-~/projects/slide-editor/inject.ts <html文件> --inline --enable --open
+bun ~/projects/slide-editor/inject.ts <html文件> --inline --enable --open
 ```
 
 这将：
@@ -181,16 +233,16 @@ HTML 演示文稿的可视化编辑器。自包含、可离线使用，支持 AI
 
 ```bash
 # 完整流程：注入 + 启用 + 打开（推荐）
-~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
+bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
 
 # 内联模式（单文件，便携）
-~/projects/slide-editor/inject.ts presentation.html --inline --enable
+bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable
 
 # 链接模式（独立的 bundle 文件）
-~/projects/slide-editor/inject.ts presentation.html --link --enable
+bun ~/projects/slide-editor/inject.ts presentation.html --link --enable
 
 # 从 HTML 中移除编辑器
-~/projects/slide-editor/inject.ts presentation.html --remove
+bun ~/projects/slide-editor/inject.ts presentation.html --remove
 ```
 
 ### 用户操作

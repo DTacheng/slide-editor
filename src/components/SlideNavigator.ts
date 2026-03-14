@@ -1,4 +1,5 @@
 import type { EditorAPI, SlideInfo } from '../types';
+import { t } from '../i18n';
 
 export class SlideNavigator {
   private container: HTMLDivElement;
@@ -20,18 +21,18 @@ export class SlideNavigator {
     nav.id = 'slide-editor-navigator';
     nav.innerHTML = `
       <div class="slide-editor-nav-controls">
-        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-add-slide" title="Add Slide">
+        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-add-slide" title="${t('navigator.addSlide')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
         </button>
-        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-duplicate-slide" title="Duplicate Slide">
+        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-duplicate-slide" title="${t('navigator.duplicateSlide')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <rect x="9" y="9" width="13" height="13" rx="2"/>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
           </svg>
         </button>
-        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-delete-slide" title="Delete Slide">
+        <button class="slide-editor-btn slide-editor-nav-btn" id="nav-delete-slide" title="${t('navigator.deleteSlide')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
           </svg>
@@ -77,6 +78,11 @@ export class SlideNavigator {
     this.thumbnails.clear();
   }
 
+  refreshLocale(): void {
+    // Re-render the navigator with new locale
+    this.refresh();
+  }
+
   refresh(): void {
     const container = this.container.querySelector('#slide-thumbnails');
     if (!container) return;
@@ -105,20 +111,23 @@ export class SlideNavigator {
     thumb.className = 'slide-editor-thumbnail';
     thumb.dataset.slideIndex = index.toString();
 
-    // Find the actual slide element
-    const slideEl = document.querySelector(`.slide:nth-child(${index + 1})`) as HTMLElement;
+    // Get all slide elements directly from DOM
+    const allSlides = document.querySelectorAll('.slide');
+    const slideEl = allSlides[index] as HTMLElement;
+
     const slideNumber = document.createElement('div');
     slideNumber.className = 'slide-editor-thumbnail-number';
     slideNumber.textContent = `${index + 1}`;
 
-    // Create a mini preview (just showing slide number for now, could use html2canvas)
+    // Create a mini preview
     const preview = document.createElement('div');
     preview.className = 'slide-editor-thumbnail-preview';
 
     if (slideEl) {
-      // Simple preview - just count elements
+      // Count elements with data-editor-id attribute
       const elementCount = slideEl.querySelectorAll('[data-editor-id]').length;
-      preview.innerHTML = `<span class="slide-editor-element-count">${elementCount} elements</span>`;
+      const elementText = elementCount === 1 ? t('navigator.element') : t('navigator.elements');
+      preview.innerHTML = `<span class="slide-editor-element-count">${elementCount} ${elementText}</span>`;
     }
 
     thumb.appendChild(slideNumber);
@@ -137,7 +146,7 @@ export class SlideNavigator {
       thumb.classList.toggle('slide-editor-thumbnail-active', i === index);
     });
 
-    // Notify editor
+    // Notify editor (which will handle showSlide)
     this.editor.setCurrentSlide(index);
 
     // Trigger callback
@@ -169,7 +178,7 @@ export class SlideNavigator {
 
     container.addEventListener('dragover', (e) => {
       e.preventDefault();
-      (e as DragEvent).dataTransfer!.dropEffect = 'move';
+      (e as DragEvent).dataTransfer!.effectAllowed = 'move';
     });
 
     container.addEventListener('drop', (e) => {

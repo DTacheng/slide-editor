@@ -46,7 +46,8 @@ export class TextEditor {
   endEditing(save = true): void {
     if (!this.activeElement) return;
 
-    const el = document.querySelector(`[data-editor-id="${this.activeElement}"]`) as HTMLElement;
+    const activeId = this.activeElement; // Store before clearing
+    const el = document.querySelector(`[data-editor-id="${activeId}"]`) as HTMLElement;
     if (!el) {
       this.activeElement = null;
       return;
@@ -62,7 +63,7 @@ export class TextEditor {
     if (save && newContent !== this.originalContent) {
       this.historyPush({
         type: 'text',
-        elementId: this.activeElement,
+        elementId: activeId,
         from: this.originalContent,
         to: newContent,
       });

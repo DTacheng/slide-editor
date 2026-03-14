@@ -1,4 +1,5 @@
 import type { EditorAPI } from '../types';
+import { t, getLocale, setLocale, type Locale } from '../i18n';
 
 export class Toolbar {
   private container: HTMLDivElement;
@@ -8,6 +9,7 @@ export class Toolbar {
   private onAddImage: () => void;
   private onTogglePanel: () => void;
   private onToggleTheme: () => void;
+  private onLocaleChange: ((locale: Locale) => void) | null = null;
   private isDarkMode = true;
 
   constructor(editor: EditorAPI, callbacks: {
@@ -24,6 +26,10 @@ export class Toolbar {
     this.onTogglePanel = callbacks.onTogglePanel;
     this.onToggleTheme = callbacks.onToggleTheme;
     this.container = this.createToolbar();
+  }
+
+  setOnLocaleChange(callback: (locale: Locale) => void): void {
+    this.onLocaleChange = callback;
   }
 
   private createToolbar(): HTMLDivElement {
@@ -80,10 +86,13 @@ export class Toolbar {
             <path d="M9 3v18"/>
           </svg>
         </button>
+        <button class="slide-editor-btn slide-editor-lang-btn" data-action="toggle-lang" title="${t('toolbar.switchLang')}">
+          <span class="lang-label">${getLocale() === 'zh' ? '中' : 'EN'}</span>
+        </button>
       </div>
       <div class="slide-editor-toolbar-group">
-        <button class="slide-editor-btn slide-editor-btn-primary" data-action="export" title="Export HTML">
-          Export
+        <button class="slide-editor-btn slide-editor-btn-primary" data-action="export" title="${t('toolbar.export')}">
+          ${t('toolbar.export')}
         </button>
       </div>
     `;
@@ -116,6 +125,9 @@ export class Toolbar {
           this.toggleThemeIcon();
           this.onToggleTheme();
           break;
+        case 'toggle-lang':
+          this.toggleLanguage();
+          break;
         case 'export':
           this.onExport();
           break;
@@ -135,8 +147,35 @@ export class Toolbar {
     }
   }
 
+  private toggleLanguage(): void {
+    const newLocale: Locale = getLocale() === 'zh' ? 'en' : 'zh';
+    setLocale(newLocale);
+
+    // Update button label
+    const langLabel = this.container.querySelector('.lang-label');
+    if (langLabel) {
+      langLabel.textContent = newLocale === 'zh' ? '中' : 'EN';
+    }
+
+    // Update export button text
+    const exportBtn = this.container.querySelector('[data-action="export"]');
+    if (exportBtn) {
+      exportBtn.textContent = t('toolbar.export');
+    }
+
+    // Notify callback to refresh other components
+    if (this.onLocaleChange) {
+      this.onLocaleChange(newLocale);
+    }
+  }
+
   mount(parent: HTMLElement): void {
     parent.appendChild(this.container);
+    // Update export button text with current locale
+    const exportBtn = this.container.querySelector('[data-action="export"]');
+    if (exportBtn) {
+      exportBtn.textContent = t('toolbar.export');
+    }
   }
 
   unmount(): void {

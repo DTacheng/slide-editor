@@ -94,6 +94,7 @@ export interface EditorAPI {
   setTextContent(id: string, content: string): void;
   setStyle(id: string, styles: Record<string, string>): void;
   cropImage(id: string, rect: CropRect): void;
+  startCropImage(id: string): void;
   bringToFront(id: string): void;
   sendToBack(id: string): void;
 
