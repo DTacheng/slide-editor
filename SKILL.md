@@ -1,5 +1,6 @@
 ---
 name: slide-editor
+version: 0.2.0
 description: "Visual editor for HTML presentations. Self-contained, offline-capable, designed for AI agent control. HTML 演示文稿可视化编辑器，自包含可离线，支持 AI Agent 控制。"
 ---
 
