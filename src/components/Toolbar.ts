@@ -10,7 +10,9 @@ export class Toolbar {
   private onTogglePanel: () => void;
   private onToggleTheme: () => void;
   private onLocaleChange: ((locale: Locale) => void) | null = null;
+  private onToggleHiddenElements: ((show: boolean) => void) | null = null;
   private isDarkMode = true;
+  private showingHiddenElements = false;
 
   constructor(editor: EditorAPI, callbacks: {
     onExport: () => void;
@@ -18,6 +20,7 @@ export class Toolbar {
     onAddImage: () => void;
     onTogglePanel: () => void;
     onToggleTheme: () => void;
+    onToggleHiddenElements?: (show: boolean) => void;
   }) {
     this.editor = editor;
     this.onExport = callbacks.onExport;
@@ -25,6 +28,7 @@ export class Toolbar {
     this.onAddImage = callbacks.onAddImage;
     this.onTogglePanel = callbacks.onTogglePanel;
     this.onToggleTheme = callbacks.onToggleTheme;
+    this.onToggleHiddenElements = callbacks.onToggleHiddenElements || null;
     this.container = this.createToolbar();
   }
 
@@ -54,6 +58,12 @@ export class Toolbar {
         <button class="slide-editor-btn" data-action="delete" title="Delete">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          </svg>
+        </button>
+        <button class="slide-editor-btn" data-action="toggle-hidden" title="Toggle Hidden Elements">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
           </svg>
         </button>
       </div>
@@ -112,6 +122,9 @@ export class Toolbar {
         case 'delete':
           this.editor.deleteSelected();
           break;
+        case 'toggle-hidden':
+          this.toggleHiddenElements();
+          break;
         case 'undo':
           this.editor.undo();
           break;
@@ -135,6 +148,20 @@ export class Toolbar {
     });
 
     return toolbar;
+  }
+
+  private toggleHiddenElements(): void {
+    // Call the callback - LayoutEngine will handle cycling through elements
+    // Always pass true to show next element, LayoutEngine handles the cycling logic
+    if (this.onToggleHiddenElements) {
+      this.onToggleHiddenElements(true);
+    }
+
+    // Update button visual state to indicate active mode
+    const hiddenBtn = this.container.querySelector('[data-action="toggle-hidden"]');
+    if (hiddenBtn) {
+      hiddenBtn.classList.add('slide-editor-btn-active');
+    }
   }
 
   private toggleThemeIcon(): void {

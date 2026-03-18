@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide Editor 测试页面</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+        .test-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .test-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        }
+        .test-card h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .test-card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        .status.ready {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .footer {
+            margin-top: 60px;
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+        }
+        .footer a {
+            color: #fff;
+            text-decoration: underline;
+        }
+        .icon {
+            font-size: 1.5rem;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .note {
+            background: rgba(255,255,255,0.15);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            color: white;
+            max-width: 800px;
+            text-align: center;
+        }
+        .note code {
+            background: rgba(0,0,0,0.2);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Slide Editor 测试中心</h1>
+    <p class="subtitle">验证四大功能修复效果：眼睛按钮、卡片选中、Logo拖动、数字编辑</p>
+
+    <div class="note">
+        💡 <strong>使用方式：</strong>点击下方卡片中的"打开PPT"按钮，浏览器会在新标签页打开PPT（自动启用编辑器），然后按提示测试对应功能。
+    </div>
+
+    <div class="test-grid">
+        <div class="test-card">
+            <h3><span class="icon">👁</span> 测试1：眼睛按钮切换</h3>
+            <p>验证第2页的眼睛按钮可以显示/隐藏 <code>.response-card</code> 元素。点击"打开PPT"后，切换到第2页，点击工具栏的眼睛图标测试。</p>
+            <a href="/Amicus-宣讲PPT-测试badcase/amicus-presentation.html?edit=1" class="btn" target="_blank">打开PPT</a>
+            <span class="status ready">第2页测试</span>
+        </div>
+
+        <div class="test-card">
+            <h3><span class="icon">🎯</span> 测试2：卡片元素选中</h3>
+            <p>验证第5页的 <code>evolution-card</code> 卡片（如"元典睿核"）可以被选中并编辑。打开后切换到第5页，点击卡片测试。</p>
+            <a href="/Amicus-宣讲PPT-测试badcase/amicus-presentation.html?edit=1" class="btn" target="_blank">打开PPT</a>
+            <span class="status ready">第5页测试</span>
+        </div>
+
+        <div class="test-card">
+            <h3><span class="icon">🖱</span> 测试3：Logo拖动</h3>
+            <p>验证Logo图片拖动后位置正确，不丢失。打开PPT后，点击任意Logo选中，然后拖拽到新的位置，观察是否位置正确。</p>
+            <a href="/Amicus-宣讲PPT-测试badcase/amicus-presentation.html?edit=1" class="btn" target="_blank">打开PPT</a>
+            <span class="status ready">任意页测试</span>
+        </div>
+
+        <div class="test-card">
+            <h3><span class="icon">✏️</span> 测试4：数字编辑</h3>
+            <p>验证 <code>stat-number</code> 元素（如"1.72亿+"）双击可编辑。切换到第4页，双击蓝色数字进入编辑模式，修改内容。</p>
+            <a href="/Amicus-宣讲PPT-测试badcase/amicus-presentation.html?edit=1" class="btn" target="_blank">打开PPT</a>
+            <span class="status ready">第4页测试</span>
+        </div>
+
+        <div class="test-card">
+            <h3><span class="icon">🎬</span> Playwright 自动化测试</h3>
+            <p>运行完整的自动化测试套件，自动生成截图报告和元素检测结果汇总JSON文件。</p>
+            <button class="btn btn-secondary" onclick="runTests()">运行自动化测试</button>
+            <span class="status ready">命令行执行</span>
+        </div>
+
+        <div class="test-card">
+            <h3><span class="icon">📊</span> 查看测试报告</h3>
+            <p>查看已生成的测试截图和元素检测汇总报告。包含所有测试步骤的截图证据。</p>
+            <a href="/test-results/" class="btn btn-secondary" target="_blank">查看截图</a>
+            <a href="/test-results/element-detection-summary.json" class="btn" target="_blank" style="margin-left: 10px;">JSON数据</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>测试文件位置：<code>e2e/verify-fixes.spec.ts</code></p>
+        <p style="margin-top: 10px;">在终端运行：<code>npx playwright test e2e/verify-fixes.spec.ts --headed</code></p>
+        <p style="margin-top: 20px;">服务器地址：<a href="http://localhost:8888">http://localhost:8888</a></p>
+        <p style="margin-top: 10px; font-size: 0.9rem;">PPT文件：<a href="/Amicus-宣讲PPT-测试badcase/amicus-presentation.html?edit=1" target="_blank">Amicus 宣讲PPT（自动启用编辑器）</a></p>
+    </div>
+
+    <script>
+        function runTests() {
+            alert('请在终端中运行以下命令：\n\nnpx playwright test e2e/verify-fixes.spec.ts --headed --project=chromium\n\n这将在浏览器中运行自动化测试并生成截图报告。');
+        }
+    </script>
+</body>
+</html>

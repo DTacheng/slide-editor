@@ -69,7 +69,31 @@ export class SlideNavigator {
   }
 
   mount(parent: HTMLElement): void {
+    console.log('[SlideNavigator] Mounting to', parent.tagName);
+
+    // Remove any existing navigator first (cleanup from previous sessions)
+    const existing = document.getElementById('slide-editor-navigator');
+    if (existing && existing !== this.container) {
+      console.log('[SlideNavigator] Removing existing navigator');
+      existing.remove();
+    }
+
+    // If already in DOM, just refresh
+    if (this.container.isConnected) {
+      console.log('[SlideNavigator] Already mounted, just refreshing');
+      this.refresh();
+      return;
+    }
+
+    // Ensure container has proper styles
+    this.container.style.display = 'flex';
+    this.container.style.visibility = 'visible';
+    this.container.style.opacity = '1';
+    this.container.style.zIndex = '99998';
+
     parent.appendChild(this.container);
+    console.log('[SlideNavigator] Mounted, container in DOM:', !!document.getElementById('slide-editor-navigator'));
+
     this.refresh();
   }
 
@@ -84,18 +108,35 @@ export class SlideNavigator {
   }
 
   refresh(): void {
+    console.log('[SlideNavigator] Refresh called');
+
     const container = this.container.querySelector('#slide-thumbnails');
-    if (!container) return;
+    if (!container) {
+      console.error('[SlideNavigator] Thumbnails container not found!');
+      return;
+    }
+
+    // Ensure navigator is visible
+    this.container.style.display = 'flex';
+    this.container.style.visibility = 'visible';
+    this.container.style.opacity = '1';
 
     container.innerHTML = '';
     this.thumbnails.clear();
 
+    // Direct DOM query for slides
+    const slideElements = document.querySelectorAll('.slide');
+    console.log('[SlideNavigator] Found slides:', slideElements.length);
+
+    // Get slides from editor
     const slides = this.editor.getSlides();
+    console.log('[SlideNavigator] Editor returned slides:', slides.length);
+
     const currentSlide = this.editor.getCurrentSlide();
     const currentIndex = currentSlide?.index ?? 0;
 
     slides.forEach((slide, index) => {
-      const thumbnail = this.createThumbnail(slide, index);
+      const thumbnail = this.createThumbnail(slide, index, slideElements[index] as HTMLElement);
       if (index === currentIndex) {
         thumbnail.classList.add('slide-editor-thumbnail-active');
       }
@@ -106,14 +147,21 @@ export class SlideNavigator {
     this.setupDragAndDrop();
   }
 
-  private createThumbnail(slide: SlideInfo, index: number): HTMLDivElement {
+  refreshAfterEnable(): void {
+    // Called after editor is fully enabled to ensure navigator shows
+    setTimeout(() => {
+      this.refresh();
+      // Force visibility again after a short delay
+      this.container.style.display = 'flex';
+      this.container.style.visibility = 'visible';
+      this.container.style.opacity = '1';
+    }, 100);
+  }
+
+  private createThumbnail(slide: SlideInfo, index: number, slideEl?: HTMLElement): HTMLDivElement {
     const thumb = document.createElement('div');
     thumb.className = 'slide-editor-thumbnail';
     thumb.dataset.slideIndex = index.toString();
-
-    // Get all slide elements directly from DOM
-    const allSlides = document.querySelectorAll('.slide');
-    const slideEl = allSlides[index] as HTMLElement;
 
     const slideNumber = document.createElement('div');
     slideNumber.className = 'slide-editor-thumbnail-number';
@@ -128,6 +176,8 @@ export class SlideNavigator {
       const elementCount = slideEl.querySelectorAll('[data-editor-id]').length;
       const elementText = elementCount === 1 ? t('navigator.element') : t('navigator.elements');
       preview.innerHTML = `<span class="slide-editor-element-count">${elementCount} ${elementText}</span>`;
+    } else {
+      preview.innerHTML = `<span class="slide-editor-element-count">-</span>`;
     }
 
     thumb.appendChild(slideNumber);

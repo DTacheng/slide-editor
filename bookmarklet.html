@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide Editor - Bookmarklet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 40px;
+        }
+        .section {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #334155;
+        }
+        .section h2 {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            color: #22d3ee;
+        }
+        .section p {
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .bookmarklet-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: grab;
+            transition: all 0.2s ease;
+            border: 2px dashed rgba(255,255,255,0.3);
+            user-select: none;
+        }
+        .bookmarklet-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(8, 145, 178, 0.3);
+        }
+        .bookmarklet-btn:active {
+            cursor: grabbing;
+        }
+        .code-block {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            color: #22d3ee;
+            overflow-x: auto;
+            word-break: break-all;
+        }
+        .steps {
+            list-style: none;
+            counter-reset: step;
+        }
+        .steps li {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 16px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            background: #0891b2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .note {
+            background: rgba(8, 145, 178, 0.1);
+            border-left: 3px solid #0891b2;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            color: #22d3ee;
+            font-size: 14px;
+        }
+        .warning {
+            background: rgba(234, 179, 8, 0.1);
+            border-left: 3px solid #eab308;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            color: #eab308;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Slide Editor</h1>
+        <p class="subtitle">在任何 HTML 演示文稿上启用可视化编辑器</p>
+
+        <div class="section">
+            <h2>使用方法：拖拽书签工具</h2>
+            <ol class="steps">
+                <li>将下面的按钮拖拽到您的浏览器书签栏</li>
+                <li>打开您想要编辑的 HTML 演示文稿文件</li>
+                <li>点击书签栏中的 "Slide Editor" 书签</li>
+                <li>编辑器将自动加载并启用</li>
+            </ol>
+            <p style="text-align: center; margin-top: 24px;">
+                <a href="javascript:(function(){var scriptUrl='http://localhost:8888/dist/editor.bundle.js';var s=document.createElement('script');s.src=scriptUrl;s.onload=function(){console.log('[Bookmarklet] Script loaded');if(window.__openclawEditor){window.__openclawEditor.enable();}else{console.error('[Bookmarklet] Editor not found');}};s.onerror=function(){alert('Failed to load Slide Editor. Make sure the server is running on localhost:8888');};document.body.appendChild(s);})();" class="bookmarklet-btn">
+                    Slide Editor
+                </a>
+            </p>
+            <p class="note" style="margin-top: 16px;">
+                提示：拖拽上面的按钮到浏览器书签栏。如果看不到书签栏，按 Ctrl/Cmd + Shift + B 显示。
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>方法 2：URL 参数</h2>
+            <p>如果您控制 HTML 文件的 URL，可以在 URL 后添加 <code>?edit=1</code> 参数：</p>
+            <div class="code-block">
+                http://localhost:8888/Amicus-宣讲PPT-测试badcase/amicus-presentation.html<b>?edit=1</b>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>方法 3：浏览器控制台</h2>
+            <p>在浏览器中打开演示文稿，按 F12 打开控制台，粘贴以下代码：</p>
+            <div class="code-block">
+var s=document.createElement('script');<br>
+s.src='http://localhost:8888/dist/editor.bundle.js';<br>
+document.body.appendChild(s);<br>
+s.onload=function(){window.__openclawEditor.enable();};
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>前提条件</h2>
+            <div class="warning">
+                确保本地服务器已启动并运行在 <b>http://localhost:8888</b><br>
+                运行命令：<code>python3 -m http.server 8888</code>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>支持的演示文稿</h2>
+            <p>本编辑器设计用于标准的 HTML 演示文稿，具有以下特征：</p>
+            <ul style="color: #94a3b8; margin-left: 20px; line-height: 1.8;">
+                <li>每张幻灯片使用 <code>&lt;div class="slide"&gt;</code> 包裹</li>
+                <li>支持文本、图片、标题等常见元素</li>
+                <li>支持动画包装元素（如 <code>.reveal</code> 类）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Prevent default drag behavior on the bookmarklet button
+        document.querySelector('.bookmarklet-btn').addEventListener('dragstart', function(e) {
+            // Allow dragging to bookmarks bar
+        });
+    </script>
+</body>
+</html>

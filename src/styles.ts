@@ -64,6 +64,28 @@ export const editorStyles = `
   cursor: text !important;
 }
 
+/* v0.3.0+: Editable elements styling */
+.slide-editor-editable {
+  cursor: move !important;
+  pointer-events: auto !important;
+}
+
+.slide-editor-editable:hover {
+  outline: 1px dashed var(--editor-accent) !important;
+  outline-offset: 1px !important;
+}
+
+/* Container-level editing */
+[data-editor-type="container"] {
+  /* Containers are editable as units */
+}
+
+/* Element-level editing */
+[data-editor-type="text"],
+[data-editor-type="image"] {
+  /* Individual elements */
+}
+
 .slide-editor-resize-handle {
   position: absolute;
   width: 10px;
@@ -127,6 +149,12 @@ export const editorStyles = `
 
 .slide-editor-btn:active {
   transform: scale(0.98);
+}
+
+.slide-editor-btn-active {
+  background: var(--editor-accent) !important;
+  color: #000 !important;
+  border-color: var(--editor-accent) !important;
 }
 
 .slide-editor-btn-primary {
@@ -368,6 +396,7 @@ export const editorStyles = `
   font-size: 14px;
   font-weight: 600;
   color: var(--editor-text);
+  pointer-events: none;
 }
 
 .slide-editor-thumbnail-preview {

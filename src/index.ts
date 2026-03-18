@@ -1,5 +1,6 @@
-import type { EditorAPI, EditorState, ElementInfo, SlideInfo, TextOptions, ImageOptions, CropRect, HistoryAction } from './types';
-import { SelectionManager, DragManager, ResizeManager, TextEditor, HistoryManager } from './core';
+import type { EditorAPI, EditorState, ElementInfo, SlideInfo, TextOptions, ImageOptions, CropRect, HistoryAction, EnableOptions } from './types';
+import { EditorMode } from './types';
+import { SelectionManager, DragManager, ResizeManager, TextEditor, HistoryManager, LayoutEngine } from './core';
 import { Toolbar, PropertiesPanel, SlideNavigator } from './components';
 import { Exporter, ImageCropper } from './serialization';
 import { editorStyles } from './styles';
@@ -13,6 +14,7 @@ class SlideEditor implements EditorAPI {
   private resizeManager: ResizeManager;
   private textEditor: TextEditor;
   private historyManager: HistoryManager;
+  private layoutEngine: LayoutEngine;  // v0.3.0+: Layout engine
   private toolbar: Toolbar;
   private propertiesPanel: PropertiesPanel;
   private slideNavigator: SlideNavigator;
@@ -23,6 +25,7 @@ class SlideEditor implements EditorAPI {
   private panelVisible = true;
   private originalFilePath: string | null = null;
   private currentTheme: 'auto' | 'light' | 'dark' = 'auto';
+  private currentMode: EditorMode = EditorMode.PROTECTED;  // v0.3.0+: Default to protected mode
 
   constructor() {
     // Initialize locale based on browser settings
@@ -41,6 +44,7 @@ class SlideEditor implements EditorAPI {
     this.dragManager = new DragManager(this.state, (a) => this.pushHistory(a));
     this.resizeManager = new ResizeManager(this.state, (a) => this.pushHistory(a));
     this.textEditor = new TextEditor(this.state, (a) => this.pushHistory(a));
+    this.layoutEngine = new LayoutEngine();  // v0.3.0+
     this.exporter = new Exporter();
     this.imageCropper = new ImageCropper();
 
@@ -50,6 +54,7 @@ class SlideEditor implements EditorAPI {
       onAddImage: () => this.handleAddImage(),
       onTogglePanel: () => this.togglePanel(),
       onToggleTheme: () => this.toggleTheme(),
+      onToggleHiddenElements: (show) => this.toggleHiddenElements(show),
     });
 
     this.propertiesPanel = new PropertiesPanel(this);
@@ -107,6 +112,25 @@ class SlideEditor implements EditorAPI {
   }
 
   private setupGlobalListeners(): void {
+    // v0.3.2+: Global pointerdown to start drag on selected elements
+    document.addEventListener('pointerdown', (e) => {
+      if (!this.state.enabled) return;
+      if (this.textEditor.isEditing()) return;
+
+      // Find if we're clicking on a selected editable element
+      const path = e.composedPath ? e.composedPath() : [e.target as HTMLElement];
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        const editorId = node.getAttribute('data-editor-id');
+        if (editorId && this.selectionManager.isSelected(editorId)) {
+          // Start drag on this element
+          this.dragManager.startDrag(e, editorId);
+          return;
+        }
+        if (node.classList?.contains('slide')) break;
+      }
+    });
+
     document.addEventListener('pointermove', (e) => {
       if (this.dragManager.isActive()) {
         this.dragManager.handleMove(e);
@@ -213,6 +237,26 @@ class SlideEditor implements EditorAPI {
     document.body.classList.toggle('panel-hidden', !this.panelVisible);
   }
 
+  // Toggle hidden elements visibility
+  toggleHiddenElements(show: boolean): void {
+    // Get all slides and find the currently visible one
+    const slides = document.querySelectorAll('.slide');
+    let currentSlide: HTMLElement | null = null;
+    slides.forEach((slide) => {
+      const htmlSlide = slide as HTMLElement;
+      if (htmlSlide.style.display !== 'none') {
+        currentSlide = htmlSlide;
+      }
+    });
+
+    if (currentSlide) {
+      this.layoutEngine.toggleHiddenElements(show, currentSlide);
+      console.log('[SlideEditor] Toggled hidden elements visibility:', show);
+    } else {
+      console.warn('[SlideEditor] No visible slide found for toggleHiddenElements');
+    }
+  }
+
   // Toggle theme: light/dark mode
   toggleTheme(): void {
     // Cycle through: auto -> light -> dark -> auto
@@ -231,9 +275,17 @@ class SlideEditor implements EditorAPI {
   }
 
   // Mode control
-  enable(): void {
+  enable(options?: EnableOptions): void {
     if (this.state.enabled) return;
     this.state.enabled = true;
+
+    // v0.3.0+: Set mode from options
+    if (options?.mode) {
+      this.currentMode = options.mode;
+    }
+    if (options?.filePath) {
+      this.originalFilePath = options.filePath;
+    }
 
     // Inject styles
     this.styleElement = document.createElement('style');
@@ -258,11 +310,18 @@ class SlideEditor implements EditorAPI {
     // Refresh slide navigator to show element counts (must be after setupEditableElements)
     this.slideNavigator.refresh();
 
+    // Ensure navigator is visible after a short delay (for dynamic content)
+    this.slideNavigator.refreshAfterEnable();
+
     // Show only the current slide
     this.showSlide(this.state.currentSlideIndex);
 
     // Update initial state
     this.toolbar.updateUndoRedoState();
+
+    // Debug info
+    console.log('[SlideEditor] Enabled successfully');
+    console.log('[SlideEditor] Slides found:', document.querySelectorAll('.slide').length);
   }
 
   // Show a specific slide and hide others
@@ -276,6 +335,9 @@ class SlideEditor implements EditorAPI {
   disable(): void {
     if (!this.state.enabled) return;
     this.state.enabled = false;
+
+    // v0.3.0+: Clear layout engine
+    this.layoutEngine.clear();
 
     // Remove styles
     this.styleElement?.remove();
@@ -300,165 +362,172 @@ class SlideEditor implements EditorAPI {
     return this.state.enabled;
   }
 
+  // v0.3.0+: Mode management
+  getMode(): EditorMode {
+    return this.currentMode;
+  }
+
+  setMode(mode: EditorMode): void {
+    this.currentMode = mode;
+    // If already enabled, re-initialize with new mode
+    if (this.state.enabled) {
+      this.disable();
+      this.enable({ mode });
+    }
+  }
+
   private setupEditableElements(): void {
-    // Find all content elements in slides
-    // Note: We focus on top-level text elements and avoid nested structure
-    const selectors = [
-      '.slide h1', '.slide h2', '.slide h3', '.slide h4', '.slide h5', '.slide h6',
-      '.slide p', '.slide img',
-      // Additional element types - but avoid deeply nested elements
-      '.slide a', '.slide blockquote'
-    ];
+    // v0.3.0+: Use LayoutEngine for container-aware element detection
+    console.log('[SlideEditor] setupEditableElements: Starting with mode:', this.currentMode);
 
-    console.log('[SlideEditor] setupEditableElements: Starting...');
-
-    console.log('[SlideEditor] Selectors:', selectors);
-
-    console.log('[SlideEditor] Total slides found:', document.querySelectorAll('.slide').length);
-
-    // Temporarily show all slides to get correct dimensions
     const slides = document.querySelectorAll('.slide');
-    const originalDisplays: string[] = [];
-    slides.forEach((s, index) => {
-      const el = s as HTMLElement;
-      // Store the current inline display style (or empty string if not set)
-      originalDisplays.push(el.style.display);
-      console.log(`[SlideEditor] Slide ${index} initial display: "${el.style.display}"`);
-      // Make all slides visible for measurement
-      el.style.display = 'flex';
-    });
+    console.log('[SlideEditor] Total slides found:', slides.length);
 
-    // First pass: identify container elements that should NOT be split
-    const containerSelectors = ['ul', 'ol', 'dl', 'table'];
-    const containerElements = new Set<HTMLElement>();
-    containerSelectors.forEach((sel) => {
-      document.querySelectorAll(`.slide ${sel}`).forEach((el) => {
-        containerElements.add(el as HTMLElement);
+    // Initialize layout engine for each slide
+    slides.forEach((slide, index) => {
+      const htmlSlide = slide as HTMLElement;
+
+      // Temporarily show slide for measurement
+      const originalDisplay = htmlSlide.style.display;
+      htmlSlide.style.display = 'flex';
+
+      // Initialize layout engine
+      const context = this.layoutEngine.initialize(htmlSlide, this.currentMode);
+
+      console.log(`[SlideEditor] Slide ${index}:`, {
+        containers: context.containers.length,
+        standaloneElements: context.standaloneElements.length,
       });
-    });
 
-    selectors.forEach((sel) => {
-      document.querySelectorAll(sel).forEach((el) => {
-        const htmlEl = el as HTMLElement;
+      // v0.3.2+: Use global click delegation for better reliability
+      // This avoids issues with per-element listeners and event propagation
+      this.setupGlobalClickHandler();
 
-        // Skip if already has editor id
-        if (htmlEl.hasAttribute('data-editor-id')) return;
-
-        // Skip if element's parent already has editor id (avoid nested editable elements)
-        if (htmlEl.parentElement?.closest('[data-editor-id]')) return;
-
-        // Skip if element is inside a container element that hasn't been processed yet
-        // This prevents individual list items from being made absolute
-        const parentContainer = htmlEl.parentElement?.closest('ul, ol, dl, table');
-        if (parentContainer && !parentContainer.hasAttribute('data-editor-id')) {
-          return;
-        }
-
-        // Skip very small or decorative elements
-        const rect = htmlEl.getBoundingClientRect();
-        if (rect.width < 10 || rect.height < 10) return;
-
-        // Assign editor ID
-        const id = `editor-el-${++this.idCounter}`;
-        htmlEl.setAttribute('data-editor-id', id);
-
-        // Get the slide container
-        const slide = htmlEl.closest('.slide') as HTMLElement;
-        if (!slide) return;
-
-        // Calculate position relative to slide
-        const slideRect = slide.getBoundingClientRect();
-        const elRect = htmlEl.getBoundingClientRect();
-        const relativeLeft = elRect.left - slideRect.left;
-        const relativeTop = elRect.top - slideRect.top;
-
-        // Store original styles for potential restoration
-        const computed = getComputedStyle(htmlEl);
-        const originalPosition = computed.position;
-
-        // Make element absolutely positioned for proper drag/resize
-        // Only change position if it's static - preserve existing absolute/relative positioning
-        if (originalPosition === 'static') {
-          htmlEl.style.position = 'absolute';
-          htmlEl.style.left = `${relativeLeft}px`;
-          htmlEl.style.top = `${relativeTop}px`;
-          htmlEl.style.width = `${elRect.width}px`;
-          // Don't set height for text elements to allow natural text flow
-          if (htmlEl.tagName.toLowerCase() === 'img') {
-            htmlEl.style.height = `${elRect.height}px`;
-          }
-        }
-
-        // Add event listeners
-        this.addElementListeners(htmlEl, id);
-      });
-    });
-
-    // Second pass: handle container elements (ul, ol, table) as whole units
-    containerSelectors.forEach((sel) => {
-      document.querySelectorAll(`.slide ${sel}`).forEach((el) => {
-        const htmlEl = el as HTMLElement;
-
-        // Skip if already has editor id
-        if (htmlEl.hasAttribute('data-editor-id')) return;
-
-        // Skip very small elements
-        const rect = htmlEl.getBoundingClientRect();
-        if (rect.width < 10 || rect.height < 10) return;
-
-        // Assign editor ID to the container as a whole
-        const id = `editor-el-${++this.idCounter}`;
-        htmlEl.setAttribute('data-editor-id', id);
-
-        // Get the slide container
-        const slide = htmlEl.closest('.slide') as HTMLElement;
-        if (!slide) return;
-
-        // Calculate position relative to slide
-        const slideRect = slide.getBoundingClientRect();
-        const elRect = htmlEl.getBoundingClientRect();
-        const relativeLeft = elRect.left - slideRect.left;
-        const relativeTop = elRect.top - slideRect.top;
-
-        // Store original styles
-        const computed = getComputedStyle(htmlEl);
-        const originalPosition = computed.position;
-
-        // Make container absolutely positioned
-        if (originalPosition === 'static') {
-          htmlEl.style.position = 'absolute';
-          htmlEl.style.left = `${relativeLeft}px`;
-          htmlEl.style.top = `${relativeTop}px`;
-          htmlEl.style.width = `${elRect.width}px`;
-        }
-
-        // Add event listeners
-        this.addElementListeners(htmlEl, id);
-      });
-    });
-
-    // Restore original display states
-    slides.forEach((s, index) => {
-      const el = s as HTMLElement;
-      const originalDisplay = originalDisplays[index];
-      // Only set if there was an inline style, otherwise clear it
-      if (originalDisplay !== null && originalDisplay !== undefined) {
-        el.style.display = originalDisplay;
-      }
+      // Restore display
+      htmlSlide.style.display = originalDisplay;
     });
   }
 
   private elementListeners: Map<HTMLElement, Map<string, (e: Event) => void>> = new Map();
+  private globalClickHandler: ((e: MouseEvent) => void) | null = null;
+  private globalDblClickHandler: ((e: MouseEvent) => void) | null = null;
+
+  // v0.3.2+: Global click delegation handler
+  private setupGlobalClickHandler(): void {
+    // Remove any existing handler
+    if (this.globalClickHandler) {
+      document.removeEventListener('click', this.globalClickHandler, true);
+    }
+    if (this.globalDblClickHandler) {
+      document.removeEventListener('dblclick', this.globalDblClickHandler, true);
+    }
+
+    this.globalClickHandler = (e: MouseEvent) => {
+      if (!this.state.enabled) return;
+
+      // Find the deepest editable element in the click path
+      const path = e.composedPath ? e.composedPath() : [e.target as HTMLElement];
+      let targetId: string | null = null;
+      let targetEl: HTMLElement | null = null;
+
+      // composedPath goes from target (deepest) up to document
+      // We want the FIRST (deepest) editable element in the path
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        const editorId = node.getAttribute('data-editor-id');
+        if (editorId) {
+          targetId = editorId;
+          targetEl = node;
+          break; // Stop at first (deepest) editable element
+        }
+        // Stop at slide boundary
+        if (node.classList?.contains('slide')) break;
+      }
+
+      if (targetId && targetEl) {
+        // Prevent selecting if clicking on interactive elements like inputs
+        const tagName = (e.target as HTMLElement).tagName;
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'BUTTON') {
+          return;
+        }
+
+        this.selectionManager.select(targetId, e.shiftKey);
+        e.stopPropagation();
+        console.log('[GlobalClickHandler] Selected:', targetId);
+      }
+    };
+
+    // Handle double-click to start text editing
+    this.globalDblClickHandler = (e: MouseEvent) => {
+      if (!this.state.enabled) return;
+      if (this.textEditor.isEditing()) return;
+
+      // Find the deepest editable element in the click path
+      const path = e.composedPath ? e.composedPath() : [e.target as HTMLElement];
+      let targetId: string | null = null;
+
+      for (const node of path) {
+        if (!(node instanceof HTMLElement)) continue;
+        const editorId = node.getAttribute('data-editor-id');
+        if (editorId) {
+          targetId = editorId;
+          break;
+        }
+        if (node.classList?.contains('slide')) break;
+      }
+
+      if (targetId) {
+        // Don't edit images
+        const el = document.querySelector(`[data-editor-id="${targetId}"]`) as HTMLElement;
+        if (el && el.tagName.toLowerCase() !== 'img') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.textEditor.startEditing(targetId);
+          console.log('[GlobalDblClickHandler] Started editing:', targetId);
+        }
+      }
+    };
+
+    // Use capture phase to get event before it reaches targets
+    document.addEventListener('click', this.globalClickHandler, true);
+    document.addEventListener('dblclick', this.globalDblClickHandler, true);
+    console.log('[SlideEditor] Global click handlers installed');
+  }
 
   private addElementListeners(el: HTMLElement, id: string): void {
     const listeners = new Map<string, (e: Event) => void>();
 
     const onClick = (e: Event) => {
       if (!this.state.enabled) return;
+
+      // Get the actual target element that was clicked
+      const target = e.target as HTMLElement;
+
+      // If clicking on a child element (like text inside a div), find the editable parent
+      // But if clicking directly on a leaf element (img, h1, p), select that directly
+      let elementToSelect: HTMLElement | null = null;
+
+      // Walk up from target to find the first element with data-editor-id
+      let current: HTMLElement | null = target;
+      while (current && !current.classList?.contains('slide')) {
+        if (current.hasAttribute?.('data-editor-id')) {
+          elementToSelect = current;
+          // Don't break - continue to find the deepest editable element
+        }
+        current = current.parentElement;
+      }
+
+      // If we found an element, select it
+      if (elementToSelect) {
+        const targetId = elementToSelect.getAttribute('data-editor-id');
+        if (targetId) {
+          const me = e as MouseEvent;
+          this.selectionManager.select(targetId, me.shiftKey);
+        }
+      }
+
+      // Stop propagation to prevent parent handlers from interfering
       e.stopPropagation();
-      const me = e as MouseEvent;
-      const addToSelection = me.shiftKey;
-      this.selectionManager.select(id, addToSelection);
     };
 
     const onDblClick = (e: Event) => {
@@ -500,12 +569,24 @@ class SlideEditor implements EditorAPI {
   }
 
   private removeEditableListeners(): void {
+    // Remove per-element listeners (legacy cleanup)
     this.elementListeners.forEach((listeners, el) => {
       listeners.forEach((listener, event) => {
         el.removeEventListener(event, listener);
       });
     });
     this.elementListeners.clear();
+
+    // Remove global click handlers
+    if (this.globalClickHandler) {
+      document.removeEventListener('click', this.globalClickHandler, true);
+      this.globalClickHandler = null;
+    }
+    if (this.globalDblClickHandler) {
+      document.removeEventListener('dblclick', this.globalDblClickHandler, true);
+      this.globalDblClickHandler = null;
+    }
+    console.log('[SlideEditor] Global click handlers removed');
   }
 
   // Query methods
@@ -540,22 +621,19 @@ class SlideEditor implements EditorAPI {
   }
 
   private getElementInfo(id: string): ElementInfo | null {
-    const el = document.querySelector(`[data-editor-id="${id}"]`) as HTMLElement;
-    if (!el) return null;
-
-    const slideEl = el.closest('.slide') as HTMLElement;
-    const slideRect = slideEl?.getBoundingClientRect() || { left: 0, top: 0 };
-    const rect = el.getBoundingClientRect();
+    // v0.3.0+: Use LayoutEngine for consistent element info
+    const info = this.layoutEngine.getElementInfo(id);
+    if (!info) return null;
 
     return {
-      id,
-      type: this.getElementType(el),
-      x: rect.left - slideRect.left,
-      y: rect.top - slideRect.top,
-      width: rect.width,
-      height: rect.height,
-      content: el.textContent || undefined,
-      src: (el as HTMLImageElement).src || undefined,
+      id: info.id,
+      type: this.getElementType(info.element),
+      x: info.x,
+      y: info.y,
+      width: info.width,
+      height: info.height,
+      content: info.element.textContent || undefined,
+      src: (info.element as HTMLImageElement).src || undefined,
       styles: {},
     };
   }
@@ -774,14 +852,14 @@ class SlideEditor implements EditorAPI {
   }
 
   moveElement(id: string, x: number, y: number): void {
-    const el = document.querySelector(`[data-editor-id="${id}"]`) as HTMLElement;
-    if (!el) return;
+    // v0.3.0+: Use LayoutEngine for mode-aware movement
+    const info = this.layoutEngine.getElementInfo(id);
+    if (!info) return;
 
-    const oldX = el.offsetLeft;
-    const oldY = el.offsetTop;
+    const oldX = info.x;
+    const oldY = info.y;
 
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
+    this.layoutEngine.moveElementTo(id, x, y);
 
     this.pushHistory({ type: 'move', elementId: id, from: { x: oldX, y: oldY }, to: { x, y } });
     this.resizeManager.updateHandlePositions(id);
@@ -1159,4 +1237,32 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { SlideEditor };
+/**
+ * Dynamic loader for bookmarklet injection
+ * Usage: window.__loadSlideEditor().then(editor => editor.enable())
+ */
+if (typeof window !== 'undefined') {
+  (window as any).__loadSlideEditor = async () => {
+    if (window.__openclawEditor) {
+      return window.__openclawEditor;
+    }
+
+    // Wait for the current script to finish loading
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (window.__openclawEditor) {
+          clearInterval(checkInterval);
+          resolve(window.__openclawEditor);
+        }
+      }, 50);
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        console.error('[SlideEditor] Failed to load editor');
+      }, 10000);
+    });
+  };
+}
+
+export { SlideEditor, LayoutEngine, EditorMode };

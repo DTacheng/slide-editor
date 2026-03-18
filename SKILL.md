@@ -1,6 +1,6 @@
 ---
 name: slide-editor
-version: 0.2.0
+version: 0.3.1
 description: "Visual editor for HTML presentations. Self-contained, offline-capable, designed for AI agent control. HTML 演示文稿可视化编辑器，自包含可离线，支持 AI Agent 控制。"
 ---
 
@@ -16,38 +16,65 @@ Visual editor for HTML presentations. Self-contained, offline-capable, designed 
 
 ### Installation
 
-**Prerequisites**: Install [bun](https://bun.sh) first (required for running the injector).
-
-```bash
-# macOS/Linux
-curl -fsSL https://bun.sh/install | bash
-
-# Windows (PowerShell)
-powershell -c "irm bun.sh/install.ps1 | iex"
-
-# Or use npm
-npm install -g bun
-```
-
-Then install and build:
+**Prerequisites**: Node.js 18+ (no need for bun).
 
 ```bash
 # Clone or download this project
 cd slide-editor
 
-# Install dependencies and build (use bun, not npm)
-bun install
-bun run build
+# Install dependencies and build
+npm install
+npm run build
 ```
+
+### Auto-Detection Mode
+
+This skill will **automatically detect** the best mode for your system:
+
+```bash
+# Auto-detect and run (recommended)
+node ~/projects/slide-editor/scripts/detect-and-run.js presentation.html
+```
+
+**Detection Logic:**
+1. ✅ If Node.js is installed → Use **CLI Mode** (full features, direct file save)
+2. ❌ If no Node.js → Use **Chrome Extension Mode** (browser-based, export to download)
+
+---
 
 ### Quick Start
 
-When user wants to visually edit an HTML presentation:
+#### Option A: CLI Mode (Node.js required)
 
 ```bash
 # Inject editor and open in browser (one command)
-bun ~/projects/slide-editor/inject.ts <html-file> --inline --enable --open
+node ~/projects/slide-editor/dist/inject.js <html-file> --inline --enable --open
 ```
+
+**Advantages:**
+- Direct file modification (no manual export/replace)
+- Can be scripted and automated
+- Works offline completely
+
+#### Option B: Chrome Extension Mode (No Node.js)
+
+**Installation:**
+1. Open Chrome, go to `chrome://extensions/`
+2. Enable "Developer mode" (top right)
+3. Click "Load unpacked"
+4. Select `chrome-extension` folder from this project
+
+**Usage:**
+1. Open your HTML presentation in Chrome
+2. Click the Slide Editor icon in toolbar
+3. Click "Enable Editor"
+4. Edit and click "Export HTML" when done
+
+**Advantages:**
+- Zero installation (no Node.js, no npm)
+- Works on any computer with Chrome
+- Works with local files and web pages
+- One-click enable/disable
 
 This will:
 1. Inject the editor bundle into the HTML file
@@ -57,16 +84,16 @@ This will:
 
 ```bash
 # Full workflow: inject + enable + open (recommended)
-bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
+node ~/projects/slide-editor/dist/inject.js presentation.html --inline --enable --open
 
 # Inline mode (single file, portable)
-bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable
+node ~/projects/slide-editor/dist/inject.js presentation.html --inline --enable
 
 # Link mode (separate bundle file)
-bun ~/projects/slide-editor/inject.ts presentation.html --link --enable
+node ~/projects/slide-editor/dist/inject.js presentation.html --link --enable
 
 # Remove editor from HTML
-bun ~/projects/slide-editor/inject.ts presentation.html --remove
+node ~/projects/slide-editor/dist/inject.js presentation.html --remove
 ```
 
 ### User Interaction
@@ -94,7 +121,10 @@ bun ~/projects/slide-editor/inject.ts presentation.html --remove
 | Undo/Redo | History controls |
 | Panel | Toggle properties panel |
 | Theme | Toggle light/dark/auto theme |
+| 👁 Eye | Toggle hidden elements (cycles through one at a time) |
 | Export | Export as new HTML file |
+
+> **Note:** The Eye button is designed for editing hidden response cards in presentations. Each click reveals the next hidden element, cycling through them one at a time to avoid overlap.
 
 ### Workflow
 
@@ -129,6 +159,7 @@ All methods available via `window.__openclawEditor`:
 - `setStyle(id, styles)` - Apply CSS
 - `cropImage(id, rect)` - Crop image
 - `bringToFront(id)` / `sendToBack(id)` - Layer order
+- `toggleHiddenElements(show)` - Cycle through hidden elements (eye button feature)
 
 #### Selection
 - `selectElement(id)` / `deselectAll()`
@@ -193,57 +224,81 @@ HTML 演示文稿的可视化编辑器。自包含、可离线使用，支持 AI
 
 ### 安装
 
-**前置条件**：先安装 [bun](https://bun.sh)（运行注入器必需）。
-
-```bash
-# macOS/Linux
-curl -fsSL https://bun.sh/install | bash
-
-# Windows (PowerShell)
-powershell -c "irm bun.sh/install.ps1 | iex"
-
-# 或使用 npm
-npm install -g bun
-```
-
-然后安装和构建：
+**前置条件**：Node.js 18+（不需要 bun）。
 
 ```bash
 # 克隆或下载此项目
 cd slide-editor
 
-# 安装依赖并构建（使用 bun，不要用 npm）
-bun install
-bun run build
+# 安装依赖并构建
+npm install
+npm run build
 ```
+
+### 自动识别模式
+
+本工具会**自动检测**您系统的最佳运行模式：
+
+```bash
+# 自动检测并运行（推荐）
+node ~/projects/slide-editor/scripts/detect-and-run.js presentation.html
+```
+
+**检测逻辑：**
+1. ✅ 如果安装了 Node.js → 使用 **CLI 模式**（完整功能，直接保存文件）
+2. ❌ 如果没有 Node.js → 使用 **Chrome 扩展模式**（浏览器内运行，导出下载）
+
+---
 
 ### 快速开始
 
-当用户想要可视化编辑 HTML 演示文稿时：
+#### 方案 A：CLI 模式（需要 Node.js）
+
+**优点：**
+- 直接修改原文件（无需手动导出/替换）
+- 可脚本化、可自动化
+- 完全离线运行
 
 ```bash
-# 注入编辑器并在浏览器中打开（一条命令）
-bun ~/projects/slide-editor/inject.ts <html文件> --inline --enable --open
+node ~/projects/slide-editor/dist/inject.js presentation.html --inline --enable --open
 ```
 
-这将：
-1. 将编辑器包注入到 HTML 文件中
-2. 自动打开浏览器并启用编辑器
+#### 方案 B：Chrome 扩展模式（无需 Node.js）
+
+**安装：**
+1. 打开 Chrome，访问 `chrome://extensions/`
+2. 开启右上角「开发者模式」
+3. 点击「加载已解压的扩展程序」
+4. 选择项目中的 `chrome-extension` 文件夹
+
+**使用：**
+1. 在 Chrome 中打开您的 HTML 演示文稿
+2. 点击工具栏上的 Slide Editor 图标
+3. 点击「Enable Editor」启用编辑器
+4. 编辑完成后点击「Export HTML」导出
+
+**优点：**
+- 零安装（无需 Node.js、无需 npm）
+- 任何有 Chrome 的电脑都能用
+- 支持本地文件和网页
+- 一键启用/禁用
+
+---
 
 ### CLI 命令
 
 ```bash
 # 完整流程：注入 + 启用 + 打开（推荐）
-bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable --open
+node ~/projects/slide-editor/dist/inject.js presentation.html --inline --enable --open
 
 # 内联模式（单文件，便携）
-bun ~/projects/slide-editor/inject.ts presentation.html --inline --enable
+node ~/projects/slide-editor/dist/inject.js presentation.html --inline --enable
 
 # 链接模式（独立的 bundle 文件）
-bun ~/projects/slide-editor/inject.ts presentation.html --link --enable
+node ~/projects/slide-editor/dist/inject.js presentation.html --link --enable
 
 # 从 HTML 中移除编辑器
-bun ~/projects/slide-editor/inject.ts presentation.html --remove
+node ~/projects/slide-editor/dist/inject.js presentation.html --remove
 ```
 
 ### 用户操作
@@ -271,7 +326,10 @@ bun ~/projects/slide-editor/inject.ts presentation.html --remove
 | 撤销/重做 | 历史控制 |
 | 面板 | 切换属性面板 |
 | 主题 | 切换亮/暗/自动主题 |
+| 👁 眼睛 | 切换隐藏元素（每次循环显示一个） |
 | 导出 | 导出为新的 HTML 文件 |
+
+> **注意：** 眼睛按钮专为演示文稿中的隐藏响应卡片设计。每次点击显示下一个隐藏元素，循环切换以避免重叠。
 
 ### 工作流程
 
@@ -306,6 +364,7 @@ bun ~/projects/slide-editor/inject.ts presentation.html --remove
 - `setStyle(id, styles)` - 应用 CSS
 - `cropImage(id, rect)` - 裁剪图片
 - `bringToFront(id)` / `sendToBack(id)` - 图层顺序
+- `toggleHiddenElements(show)` - 循环显示隐藏元素（眼睛按钮功能）
 
 #### 选择
 - `selectElement(id)` / `deselectAll()`

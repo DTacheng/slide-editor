@@ -1,7 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+
+// Get __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const args = process.argv.slice(2);
 const helpText = `
@@ -68,8 +73,8 @@ if (remove) {
 let injection = '';
 
 if (inline) {
-  // Find the bundle
-  const bundlePath = resolve(import.meta.dir, 'dist/editor.bundle.js');
+  // Find the bundle (dist is in the same dir as inject.js)
+  const bundlePath = resolve(__dirname, 'editor.bundle.js');
   if (!existsSync(bundlePath)) {
     console.error('Error: Bundle not found. Run "bun run build" first.');
     process.exit(1);
@@ -86,7 +91,7 @@ ${bundle}
 `;
 } else if (link) {
   // Copy bundle to target directory
-  const bundlePath = resolve(import.meta.dir, 'dist/editor.bundle.js');
+  const bundlePath = resolve(__dirname, 'editor.bundle.js');
   if (!existsSync(bundlePath)) {
     console.error('Error: Bundle not found. Run "bun run build" first.');
     process.exit(1);

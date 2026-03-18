@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slide Editor v0.3.0 Layout Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      padding: 20px;
+    }
+    .slide {
+      width: 960px;
+      height: 540px;
+      margin: 0 auto 40px;
+      background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+      border-radius: 12px;
+      padding: 40px;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    h2 { font-size: 32px; margin-bottom: 24px; }
+    .two-col {
+      display: flex;
+      gap: 40px;
+      align-items: center;
+    }
+    .col { flex: 1; }
+    h3 { font-size: 20px; margin-bottom: 12px; color: #e94560; }
+    p { font-size: 16px; line-height: 1.6; margin-bottom: 16px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .placeholder-img {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+    }
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    button {
+      padding: 8px 16px;
+      margin: 4px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-primary { background: #e94560; color: white; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .reveal, .reveal-left, .reveal-scale { opacity: 1; }
+    .slide-editor-editable {
+      outline: 2px dashed transparent;
+      transition: outline-color 0.2s;
+    }
+    .slide-editor-editable:hover {
+      outline-color: rgba(233, 69, 96, 0.5);
+    }
+    .slide-editor-selected {
+      outline-color: #e94560 !important;
+      outline-style: solid !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <button class="btn-primary" onclick="enableEditor()">Enable Editor</button>
+    <button class="btn-secondary" onclick="disableEditor()">Disable Editor</button>
+    <button class="btn-secondary" onclick="exportHtml()">Export</button>
+  </div>
+
+  <div class="slide" id="slide-1">
+    <div class="slide-inner">
+      <h2>精准研究</h2>
+      <div class="two-col" id="test-two-col">
+        <div class="col reveal-left">
+          <h3>应用场景</h3>
+          <p>大模型在司法领域的深度应用</p>
+          <ul class="feature-list">
+            <li>检索不精准</li>
+            <li>阅读耗时</li>
+          </ul>
+        </div>
+        <div class="col reveal-scale">
+          <div class="placeholder-img">📊</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../dist/editor.bundle.js"></script>
+  <script>
+    let engine = null;
+
+    function enableEditor() {
+      if (window.SlideEditor && window.SlideEditor.LayoutEngine) {
+        engine = new SlideEditor.LayoutEngine();
+        document.querySelectorAll('.slide').forEach(slide => {
+          engine.initialize(slide, SlideEditor.EditorMode.PROTECTED);
+        });
+        window.__slideEditor = {
+          engine: engine,
+          export: function() {
+            // Get the slide HTML and clean it
+            const slide = document.querySelector('#slide-1');
+            const clone = slide.cloneNode(true);
+            // Remove editor attributes
+            clone.querySelectorAll('[data-editor-id]').forEach(el => {
+              el.removeAttribute('data-editor-id');
+              el.removeAttribute('data-editor-type');
+              el.classList.remove('slide-editor-editable', 'slide-editor-selected');
+            });
+            return clone.outerHTML;
+          }
+        };
+        console.log('Editor enabled');
+      } else {
+        console.error('SlideEditor not loaded', window.SlideEditor);
+      }
+    }
+
+    function disableEditor() {
+      if (engine) {
+        engine.clear();
+        engine = null;
+        window.__slideEditor = null;
+        console.log('Editor disabled');
+      }
+    }
+
+    function exportHtml() {
+      if (window.__slideEditor && window.__slideEditor.export) {
+        const html = window.__slideEditor.export();
+        console.log('Exported HTML:', html.substring(0, 200) + '...');
+        return html;
+      }
+    }
+  </script>
+</body>
+</html>

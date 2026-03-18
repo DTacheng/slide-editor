@@ -32,9 +32,27 @@ export class Exporter {
       body.style.paddingRight = '';
     }
 
-    // Remove data-editor-id attributes
+    // v0.3.0+: Handle data-editor-id and related attributes
     clone.querySelectorAll('[data-editor-id]').forEach((el) => {
-      el.removeAttribute('data-editor-id');
+      const htmlEl = el as HTMLElement;
+
+      // In protected mode, keep the relative positioning if element was moved
+      // This preserves user edits while maintaining layout structure
+      const wasMoved = htmlEl.hasAttribute('data-editor-moved');
+      const position = htmlEl.style.position;
+
+      // Clean up editor attributes
+      htmlEl.removeAttribute('data-editor-id');
+      htmlEl.removeAttribute('data-editor-type');
+      htmlEl.removeAttribute('data-editor-moved');
+      htmlEl.classList.remove('slide-editor-editable');
+
+      // In protected mode with relative positioning, keep the position
+      // as it preserves the user's edits within the document flow
+      if (!wasMoved && position === 'relative') {
+        // If element wasn't explicitly moved, restore original position
+        // (This is handled by the caller if needed)
+      }
     });
 
     // Remove contenteditable

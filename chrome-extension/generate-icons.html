@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Icons</title>
+</head>
+<body>
+  <canvas id="c16" width="16" height="16"></canvas>
+  <canvas id="c48" width="48" height="48"></canvas>
+  <canvas id="c128" width="128" height="128"></canvas>
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#16213e');
+      gradient.addColorStop(1, '#e94560');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // Border radius effect
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, size * 0.2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Slide icon (white rectangle with lines)
+      const padding = size * 0.2;
+      const slideWidth = size - padding * 2;
+      const slideHeight = slideWidth * 0.6;
+      const slideX = padding;
+      const slideY = (size - slideHeight) / 2;
+
+      ctx.fillStyle = 'white';
+      ctx.fillRect(slideX, slideY, slideWidth, slideHeight);
+
+      // Lines representing text
+      ctx.fillStyle = '#16213e';
+      const lineHeight = slideHeight * 0.15;
+      const lineWidth = slideWidth * 0.7;
+      const lineX = slideX + (slideWidth - lineWidth) / 2;
+
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(lineX, slideY + slideHeight * 0.25 + i * lineHeight * 1.5, lineWidth, lineHeight * 0.6);
+      }
+
+      // Download link
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL();
+      link.textContent = `Download ${size}x${size}`;
+      document.body.appendChild(link);
+      document.body.appendChild(document.createElement('br'));
+    }
+
+    drawIcon(document.getElementById('c16'), 16);
+    drawIcon(document.getElementById('c48'), 48);
+    drawIcon(document.getElementById('c128'), 128);
+  </script>
+</body>
+</html>

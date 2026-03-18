@@ -1,5 +1,20 @@
 // Core types for the slide editor
 
+/**
+ * Editor modes - v0.3.0+
+ * PROTECTED: Preserve original layout, use relative positioning
+ * FREEFORM: Convert to absolute positioning (v0.2 compatible, with warning)
+ */
+export enum EditorMode {
+  PROTECTED = 'protected',
+  FREEFORM = 'freeform',
+}
+
+export interface EnableOptions {
+  mode?: EditorMode;
+  filePath?: string;
+}
+
 export interface SlideInfo {
   index: number;
   id: string;
@@ -65,9 +80,13 @@ export interface EditorState {
 // Editor API interface - exposed as window.__openclawEditor
 export interface EditorAPI {
   // Mode control
-  enable(): void;
+  enable(options?: EnableOptions): void;
   disable(): void;
   isEnabled(): boolean;
+
+  // Mode settings - v0.3.0+
+  getMode(): EditorMode;
+  setMode(mode: EditorMode): void;
 
   // Query
   getSlides(): SlideInfo[];
@@ -111,6 +130,9 @@ export interface EditorAPI {
   // Export
   export(): string;
   exportWithEditor(): string;
+
+  // Hidden elements toggle
+  toggleHiddenElements(show: boolean): void;
 }
 
 // Resize handle positions

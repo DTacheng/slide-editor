@@ -1,19 +1,27 @@
 {
   "name": "@dtacheng/slide-editor",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Visual editor for HTML slides - embeddable, offline-capable",
   "main": "dist/editor.bundle.js",
   "types": "src/types.ts",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --minify --outfile=dist/editor.bundle.js --format=iife --global-name=SlideEditor",
+    "build": "esbuild src/index.ts --bundle --minify --outfile=dist/editor.bundle.js --format=iife --global-name=SlideEditor && npm run build:inject",
+    "build:inject": "esbuild inject.ts --bundle --platform=node --outfile=dist/inject.js --format=esm",
     "dev": "esbuild src/index.ts --bundle --outfile=dist/editor.bundle.js --format=iife --global-name=SlideEditor --watch",
     "typecheck": "tsc --noEmit",
-    "inject": "bun inject.ts",
-    "prepublishOnly": "bun run build"
+    "inject": "node dist/inject.js",
+    "prepublishOnly": "npm run build",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:all": "npm run test:coverage && npm run test:e2e"
   },
   "bin": {
-    "slide-editor": "./inject.ts"
+    "slide-editor": "./dist/inject.js"
   },
   "files": [
     "dist/",
@@ -24,10 +32,18 @@
     "skill.md"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@testing-library/dom": "^10.4.1",
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
     "esbuild": "^0.20.0",
+    "jsdom": "^27.0.1",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
     "puppeteer": "^24.39.1",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.4"
   },
   "keywords": [
     "slides",
