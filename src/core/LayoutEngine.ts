@@ -280,9 +280,6 @@ export class LayoutEngine {
     // Always editable: images
     if (el.tagName === 'IMG') return true;
 
-    // Always editable: images
-    if (el.tagName === 'IMG') return true;
-
     // Always editable: content elements with text
     if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P'].includes(el.tagName)) {
       return this.hasVisibleContent(el);
@@ -339,6 +336,32 @@ export class LayoutEngine {
     // NEW v0.3.3: Support for data-editable attribute
     if (el.hasAttribute('data-editable')) {
       return true;
+    }
+
+    // NEW v0.3.5: Leaf DIV/SECTION/etc. whose only content is DIRECT text
+    // (no child elements) becomes editable. This fixes the common "can't select"
+    // case where generators wrap text in a bare <div> instead of a semantic tag,
+    // e.g. <div class="title">标题</div> or <div class="kpi">1,280</div>.
+    // Safe by design: requires zero child elements, so it can NEVER select a
+    // wrapping section/container (those always have element children).
+    if (el.childElementCount === 0 && this.hasDirectVisibleContent(el)) {
+      return true;
+    }
+
+    // NEW v0.3.6: Leaf decorative shapes — an empty leaf box (no child elements,
+    // no text) that is visually present via a background, border or background
+    // image. Lets users select & move decorative lines, dots, dividers and color
+    // blocks (e.g. <div class="rule">, <div class="dot">). Still leaf-only, so it
+    // can never select a wrapping container.
+    if (el.childElementCount === 0 && !this.hasVisibleContent(el) && el.tagName !== 'BODY') {
+      const cs = getComputedStyle(el);
+      const bg = cs.backgroundColor;
+      const hasBg = !!bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)';
+      const hasBgImg = !!cs.backgroundImage && cs.backgroundImage !== 'none';
+      const hasBorder =
+        (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0) +
+        (parseFloat(cs.borderBottomWidth) || 0) + (parseFloat(cs.borderLeftWidth) || 0) > 0;
+      if (hasBg || hasBgImg || hasBorder) return true;
     }
 
     // v0.3.2+: Generic containers (DIV, SECTION, etc.) are NOT editable elements
@@ -1044,9 +1067,12 @@ export class LayoutEngine {
    * Save original styles for restoration
    */
   private saveOriginalStyles(el: HTMLElement): void {
-    const computed = getComputedStyle(el);
+    // Capture the element's ORIGINAL INLINE styles so restoreElement() reverts the
+    // element exactly to its pre-edit state (empty string when no inline value was
+    // set). Previously this stored computed.position ('static'), which restore wrote
+    // back as an inline 'static', leaving a stray inline style instead of clearing it.
     this.originalStyles.set(el, {
-      position: computed.position,
+      position: el.style.position,
       left: el.style.left,
       top: el.style.top,
       width: el.style.width,

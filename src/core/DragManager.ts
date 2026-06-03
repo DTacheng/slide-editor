@@ -3,9 +3,15 @@ import type { EditorState, HistoryAction } from '../types';
 interface ElementStartPosition {
   x: number;
   y: number;
+  originalPosition: string;
   originalTransform: string;
+  originalLeft: string;
+  originalTop: string;
   originalRight: string;
   originalBottom: string;
+  originalWidth: string;
+  originalHeight: string;
+  originalMargin: string;
 }
 
 export class DragManager {
@@ -52,8 +58,19 @@ export class DragManager {
   }
 
   /**
-   * Capture initial position of an element, handling various CSS positioning scenarios
-   * Fixes issues with transform, right/bottom positioning, and absolute positioned elements
+   * Capture initial position of an element.
+   *
+   * v0.3.5 — Unified "promote to absolute" strategy.
+   * Regardless of the original layout (static / relative / flex child / grid child /
+   * transform-centered / right-bottom anchored), we measure the element's current
+   * VISUAL rectangle relative to its .slide and pin it with absolute left/top.
+   * This makes dragging pixel-stable and eliminates the classic failure modes:
+   *   - transform: translate(-50%,-50%) being cleared → element jumps half a box
+   *   - right/bottom anchoring → mis-converted to left/top
+   *   - flex/grid children → relative offset gets re-flowed away ("rubber-band")
+   *   - wrong offsetParent (no positioned ancestor) → coordinate basis is off
+   *
+   * Original style values are saved so endDrag/cancel could restore them if needed.
    */
   private captureInitialPosition(el: HTMLElement, id: string): void {
     // Disable native drag behavior that conflicts with editor drag
@@ -61,97 +78,68 @@ export class DragManager {
       el.draggable = false;
     }
 
-    const computed = window.getComputedStyle(el);
-
-    // Store original values for potential restoration
+    // Save original inline styles for potential restoration
+    const originalPosition = el.style.position;
     const originalTransform = el.style.transform;
+    const originalLeft = el.style.left;
+    const originalTop = el.style.top;
     const originalRight = el.style.right;
     const originalBottom = el.style.bottom;
+    const originalWidth = el.style.width;
+    const originalHeight = el.style.height;
+    const originalMargin = el.style.margin;
 
-    // Get current visual position BEFORE clearing transform
-    // This is the actual position we want to maintain
-    const rect = el.getBoundingClientRect();
-    const parentEl = el.offsetParent as HTMLElement;
-    const parentRect = parentEl ? parentEl.getBoundingClientRect() : { left: 0, top: 0 };
-
-    // Calculate position relative to offset parent
-    // This accounts for any transform that was applied
-    const visualLeft = rect.left - parentRect.left;
-    const visualTop = rect.top - parentRect.top;
-
-    // Handle elements with right/bottom positioning (convert to left/top)
-    // This is common for corner logos using right: 50% + transform: translateX(50%)
-    if (computed.position === 'absolute' || computed.position === 'fixed') {
-      // Clear transform first
-      el.style.transform = 'none';
-
-      // Always set position to absolute for consistency
-      el.style.position = 'absolute';
-
-      // Convert right positioning to left positioning using visual position
-      if (computed.right !== 'auto' && computed.left === 'auto') {
-        el.style.right = 'auto';
-        el.style.left = `${visualLeft}px`;
-      } else if (computed.left !== 'auto') {
-        // If left was already set, parse it and adjust for any delta
-        const currentLeft = parseFloat(computed.left) || 0;
-        el.style.left = `${currentLeft}px`;
-      } else {
-        // Neither left nor right was set explicitly
-        el.style.left = `${visualLeft}px`;
+    // Establish the positioning context = the element's DIRECT parent, and make it
+    // positioned (relative) if it is static. This is critical: once we set the
+    // element to position:absolute, its containing block becomes the nearest
+    // positioned ancestor. By pinning the direct parent as that ancestor we keep
+    // drag coordinates in the SAME space that ResizeManager uses for its handles
+    // (which are appended to el.parentElement). Measuring against .slide instead
+    // caused nested elements (e.g. a number inside an absolutely-positioned .card)
+    // to jump by the card's offset on drag start.
+    const parent = (el.parentElement as HTMLElement | null) || (el.closest('.slide') as HTMLElement | null);
+    let basisLeft = 0, basisTop = 0;
+    if (parent) {
+      if (window.getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
       }
-
-      // Convert bottom positioning to top positioning using visual position
-      if (computed.bottom !== 'auto' && computed.top === 'auto') {
-        el.style.bottom = 'auto';
-        el.style.top = `${visualTop}px`;
-      } else if (computed.top !== 'auto') {
-        // If top was already set, use it
-        const currentTop = parseFloat(computed.top) || 0;
-        el.style.top = `${currentTop}px`;
-      } else {
-        // Neither top nor bottom was set explicitly
-        el.style.top = `${visualTop}px`;
-      }
-    } else {
-      // For relative/static positioned elements
-      if (computed.position === 'static') {
-        el.style.position = 'relative';
-      }
-
-      // Clear any transform that might affect positioning
-      el.style.transform = 'none';
-
-      // For relative positioned elements, we need to be careful
-      // If left/top are not set, the element is at its natural position
-      // We should only set them if we need to move the element
-      if (!el.style.left && !computed.left) {
-        el.style.left = '0px';
-      } else if (computed.left !== 'auto') {
-        el.style.left = computed.left;
-      } else {
-        el.style.left = '0px';
-      }
-
-      if (!el.style.top && !computed.top) {
-        el.style.top = '0px';
-      } else if (computed.top !== 'auto') {
-        el.style.top = computed.top;
-      } else {
-        el.style.top = '0px';
-      }
+      const parentRect = parent.getBoundingClientRect();
+      // Absolute offsets are relative to the parent's padding box (inside its border)
+      basisLeft = parentRect.left + (parent.clientLeft || 0);
+      basisTop = parentRect.top + (parent.clientTop || 0);
     }
 
-    // Store the starting position
-    const startX = parseFloat(el.style.left) || 0;
-    const startY = parseFloat(el.style.top) || 0;
+    // Measure the element's current visual box BEFORE we mutate any styles.
+    const rect = el.getBoundingClientRect();
+    const visualLeft = rect.left - basisLeft;
+    const visualTop = rect.top - basisTop;
+
+    // Pin the element with absolute positioning at its current visual location.
+    // Lock width/height first so promoting out of flow doesn't resize the box.
+    el.style.width = `${rect.width}px`;
+    if (el.tagName === 'IMG' || originalHeight) {
+      el.style.height = `${rect.height}px`;
+    }
+    el.style.position = 'absolute';
+    el.style.margin = '0';
+    el.style.transform = 'none';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.left = `${visualLeft}px`;
+    el.style.top = `${visualTop}px`;
 
     this.elementStartPositions.set(id, {
-      x: startX,
-      y: startY,
+      x: visualLeft,
+      y: visualTop,
+      originalPosition,
       originalTransform,
+      originalLeft,
+      originalTop,
       originalRight,
       originalBottom,
+      originalWidth,
+      originalHeight,
+      originalMargin,
     });
   }
 
@@ -180,10 +168,14 @@ export class DragManager {
    * Enforce boundary constraints to prevent elements from being dragged outside the slide
    */
   private enforceBoundaryConstraints(el: HTMLElement): void {
-    const slide = el.closest('.slide') as HTMLElement;
-    if (!slide) return;
+    // Constrain within the element's positioning context (its offsetParent), which
+    // is the same basis the drag coordinates use. For top-level elements this is
+    // the slide; for nested elements it is their container. This keeps the clamp
+    // math consistent with the left/top values we write.
+    const container = (el.offsetParent as HTMLElement) || (el.closest('.slide') as HTMLElement);
+    if (!container) return;
 
-    const slideRect = slide.getBoundingClientRect();
+    const slideRect = container.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
 
     // Allow some tolerance so the element doesn't have to be completely inside

@@ -1,12 +1,29 @@
 ---
 name: slide-editor
-version: 0.3.1
-description: "Visual editor for HTML presentations. Self-contained, offline-capable, designed for AI agent control. HTML 演示文稿可视化编辑器，自包含可离线，支持 AI Agent 控制。"
+version: 0.3.5
+description: "End-to-end HTML presentations: generate editor-ready decks, visually edit, and export. Self-contained, offline-capable, designed for AI agent control. HTML 演示文稿一站式：生成可编辑级幻灯片 → 可视化编辑 → 导出。自包含可离线，支持 AI Agent 控制。"
 ---
 
 # Slide Editor
 
 [中文](#中文) | [English](#english)
+
+---
+
+## 全流程 / Full lifecycle
+
+本 skill 覆盖三个阶段，单一 skill 完成「生成符合标准的 PPT → 编辑 → 保存」：
+
+1. **生成 (Generate)** — 按 **[docs/GENERATE.md](docs/GENERATE.md)** 产出"生成即可编辑"的 HTML-PPT（融合 frontend-design 美学 + 本项目结构契约）。
+2. **编辑 (Edit)** — `node dist/inject.js deck.html --inline --enable --open`，浏览器中点选/拖动/改字/缩放。
+3. **保存 (Export)** — 编辑器 Export 按钮导出干净 HTML。
+
+**关键参考文档：**
+- **[docs/EDITOR_CONTRACT.md](docs/EDITOR_CONTRACT.md)** — 生成与编辑双方遵守的结构契约（什么 HTML 能被稳定选中/拖动）。
+- **[docs/GENERATE.md](docs/GENERATE.md)** — 生成手册（美学 + 契约 + 脚手架 + 自检）。
+- **交付前自检**：`node scripts/check-compatibility.js deck.html` 量化适配度，把"选不中/拖动跳位"在生成阶段消灭。
+
+> v0.3.5 修复要点：① 裸 `<div>纯文字</div>` 现可选中；② 拖动改为"提升为相对 slide 的 absolute 定位"，根治 flex/grid 子元素、transform 居中、right/bottom 定位导致的拖动跳位。
 
 ---
 
